@@ -137,7 +137,7 @@ export async function POST(req: Request){
                     "Authorization": `Bearer ${process.env.NVIDIA_AI_API}`,
                 },
                 body: JSON.stringify({
-                    model: "nvidia/nemotron-nano-9b-v2:free",
+                    model: "nvidia/nemotron-3.5-lightning:free",
                     messages: [{ role: "user", content: query }],
                 }),
             });
@@ -241,7 +241,7 @@ export async function POST(req: Request){
                     "Authorization": `Bearer ${process.env.NVIDIA_AI_API}`,
                 },
                 body: JSON.stringify({
-                    model: "nvidia/nemotron-nano-9b-v2:free",
+                    model: "nvidia/nemotron-3.5-lightning:free",
                     messages: [
                         { role: "user", content: evaluationPrompt }
                     ],

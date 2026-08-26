@@ -207,7 +207,7 @@ Generate at least 3-5 key topics, 5-8 study tips, 3-5 practice questions, and 3-
                 "X-Title": "Note Pilot Study Guides",
             },
             body: JSON.stringify({
-                model: "nvidia/nemotron-nano-9b-v2:free",
+                model: "nvidia/nemotron-3.5-lightning:free",
                 temperature: 0.3,
                 messages: [
                     { role: "system", content: SYSTEM_PROMPT },

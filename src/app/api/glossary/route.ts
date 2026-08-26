@@ -99,7 +99,7 @@ Text:
                 "X-Title": "Note Pilot Glossary",
             },
             body: JSON.stringify({
-                model: "nvidia/nemotron-nano-9b-v2:free",
+                model: "nvidia/nemotron-3.5-lightning:free",
                 temperature: 0.2,
                 messages: [
                     { role: "system", content: SYSTEM_PROMPT },

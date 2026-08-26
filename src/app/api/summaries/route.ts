@@ -102,7 +102,7 @@ Content to summarize:
                 "X-Title": "Note Pilot Summaries",
             },
             body: JSON.stringify({
-                model: "nvidia/nemotron-nano-9b-v2:free",
+                model: "nvidia/nemotron-3.5-lightning:free",
                 temperature: 0.3,
                 messages: [
                     { role: "system", content: SYSTEM_PROMPT },
