@@ -153,7 +153,7 @@ export default function PDFsPage() {
     formData.append('lectureTitle', file.name.replace(/\.[^/.]+$/, "")); // Remove extension
 
     try {
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/upload_v2', {
         method: 'POST',
         body: formData,
       });

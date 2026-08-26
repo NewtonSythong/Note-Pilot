@@ -82,8 +82,10 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({
       status: 200,
+      success: true,
       paperId,
-      lectureTitle
+      lectureTitle,
+      textLength: parsedText.length,
     });
   } catch (err: any) {
     console.error("Forwarding API error:", err);
