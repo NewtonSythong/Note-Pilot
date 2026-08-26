@@ -156,6 +156,13 @@ export async function POST(req: Request){
 
             // Save problem set to database
             try {
+                // upload_id is unique on problem_set — clear out any existing set for
+                // this upload first so regenerating doesn't hit a P2002 conflict.
+                // Cascades to delete its problem rows too.
+                await prisma.problem_set.deleteMany({
+                    where: { upload_id: uploadIds[0] }
+                });
+
                 const problemSet = await prisma.problem_set.create({
                     data: {
                         upload_id: uploadIds[0], // Store against first upload for simplicity
