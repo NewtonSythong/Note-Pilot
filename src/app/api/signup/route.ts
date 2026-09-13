@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/db";
+import { createSession } from "@/lib/session";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import crypto from "crypto";
-import { cookies } from "next/headers";
 
 /**
  * API route to handle user signup.
@@ -49,29 +48,9 @@ export async function POST(request: Request) {
     });
 
 
-    // Generate and store session storage in DB
-    const token = crypto.randomBytes(32).toString("hex");
-    
-    // store session in DB
-    await prisma.session.create({
-      data: {
-        user_id: user.user_id,
-        token,
-        expires_at: new Date(Date.now() + 1000 * 60 * 60 * 1), // 1h
-        last_active_at: new Date(),
-      }
-    });
-    
-    // Set cookies
-    (await cookies()).set({
-      name: "session_token",
-      value: token,
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
+    await createSession(user.user_id);
 
-    return NextResponse.json({ user: { id: user.user_id, email: user.email, usernane : user.username } });
+    return NextResponse.json({ user: { id: user.user_id, email: user.email, username: user.username } });
   } catch (error: any) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if(error.code ==  "P2002"){

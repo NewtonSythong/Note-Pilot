@@ -5,13 +5,16 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 // Must be named `mock*`: jest.mock() is hoisted above this declaration, and
 // only that prefix may be referenced from the factory.
 const mockCount = jest.fn<(args: unknown) => Promise<number>>();
-jest.mock('@/lib/db', () => ({ prisma: { upload: { count: mockCount } } }));
+const mockProblemCount = jest.fn<(args: unknown) => Promise<number>>();
+jest.mock('@/lib/db', () => ({
+  prisma: { upload: { count: mockCount }, problem: { count: mockProblemCount } },
+}));
 
 // Required rather than imported. The transform hoists ES imports above
 // jest.mock(), which would load the real @/lib/db — and with it a live Prisma
 // client — before the mock is registered, so these tests would quietly run
 // against the real database instead of the stub.
-const { userOwnsAllUploads } = require('../ownership') as typeof import('../ownership');
+const { userOwnsAllUploads, userOwnsProblem } = require('../ownership') as typeof import('../ownership');
 
 describe('userOwnsAllUploads', () => {
   beforeEach(() => mockCount.mockReset());
@@ -38,6 +41,28 @@ describe('userOwnsAllUploads', () => {
     await userOwnsAllUploads([1], 7);
     expect(mockCount).toHaveBeenCalledWith({
       where: { upload_id: { in: [1] }, paper: { user_id: 7 } },
+    });
+  });
+});
+
+describe('userOwnsProblem', () => {
+  beforeEach(() => mockProblemCount.mockReset());
+
+  it('passes for a problem reached through an upload the user owns', async () => {
+    mockProblemCount.mockResolvedValue(1);
+    expect(await userOwnsProblem(4, 7)).toBe(true);
+  });
+
+  it('fails for a problem belonging to someone else', async () => {
+    mockProblemCount.mockResolvedValue(0);
+    expect(await userOwnsProblem(4, 7)).toBe(false);
+  });
+
+  it('walks the whole chain to the owning user, not just the problem id', async () => {
+    mockProblemCount.mockResolvedValue(1);
+    await userOwnsProblem(4, 7);
+    expect(mockProblemCount).toHaveBeenCalledWith({
+      where: { problem_id: 4, problem_set: { upload: { paper: { user_id: 7 } } } },
     });
   });
 });
