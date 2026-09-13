@@ -1,6 +1,6 @@
 import { getAuthedUserId } from "@/lib/auth";
 import { parseUploadIds } from "@/lib/uploadIds";
-import { userOwnsAllUploads } from "@/lib/ownership";
+import { userOwnsAllUploads, userOwnsProblem } from "@/lib/ownership";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -48,13 +48,27 @@ export async function GET(request: Request) {
         });
 
         if (existingProblemSet) {
-            const questionsWithAnswers = existingProblemSet.problem.map((problem, index) => ({
-                id: problem.problem_id,
-                question: problem.question_text,
-                answer: problem.answer_text || "",
-                userAnswer: "", // We'll need to track this differently for now
-                userAnswerId: null
-            }));
+            // Only this user's answers: user_answer is keyed by problem and
+            // user, and the same problem set is not shared, but scoping here
+            // keeps the query honest if that ever changes.
+            const answers = await prisma.user_answer.findMany({
+                where: {
+                    user_id: userId,
+                    problem_id: { in: existingProblemSet.problem.map((p) => p.problem_id) },
+                },
+            });
+            const answerByProblem = new Map(answers.map((a) => [a.problem_id, a]));
+
+            const questionsWithAnswers = existingProblemSet.problem.map((problem) => {
+                const saved = answerByProblem.get(problem.problem_id);
+                return {
+                    id: problem.problem_id,
+                    question: problem.question_text,
+                    answer: problem.answer_text || "",
+                    userAnswer: saved?.answer_text ?? "",
+                    userAnswerId: saved?.answer_id ?? null
+                };
+            });
 
             return NextResponse.json({ 
                 success: true, 
@@ -85,7 +99,6 @@ export async function POST(req: Request){
         }
 
         const {mode, uploadIds, lectureId, userAnswer, questions, problemId, userAnswerId} = await req.json();
-        console.log(mode, uploadIds, lectureId, userAnswer, questions);
 
         if(!mode) {
             return NextResponse.json({error:"No mode selected"}, {status: 400});
@@ -208,14 +221,27 @@ export async function POST(req: Request){
                 return NextResponse.json({questions: questionsWithoutIds});
             }
 
-        // SAVE USER ANSWER (For now, we'll handle this on the client side with local storage)
+        // SAVE USER ANSWER
         } else if(mode === "saveAnswer") {
-            // TODO: Add user_answer table to schema for proper persistence
-            // For now, return success to maintain API compatibility
-            return NextResponse.json({ 
-                success: true, 
-                message: "Answer saved locally (database storage pending schema update)" 
+            if (typeof problemId !== "number" || typeof userAnswer !== "string") {
+                return NextResponse.json({error: "problemId and userAnswer are required"}, {status: 400});
+            }
+
+            // A problem id arrives from the client like any other id, so it is
+            // not evidence the question belongs to whoever sent it.
+            if (!(await userOwnsProblem(problemId, userId))) {
+                return NextResponse.json({error: "Problem not found"}, {status: 404});
+            }
+
+            // Replaces the previous answer rather than appending: the unique
+            // constraint on (problem_id, user_id) is what makes this an edit.
+            const saved = await prisma.user_answer.upsert({
+                where: { problem_id_user_id: { problem_id: problemId, user_id: userId } },
+                update: { answer_text: userAnswer },
+                create: { problem_id: problemId, user_id: userId, answer_text: userAnswer },
             });
+
+            return NextResponse.json({ success: true, userAnswerId: saved.answer_id });
 
         // EVALUATE ANSWER (Temporary - Not Persistent)
         } else if(mode === "evaluate"){

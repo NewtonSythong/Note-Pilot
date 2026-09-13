@@ -19,6 +19,7 @@ model application_user {
   session            session[]
   twofactorauthtoken twofactorauthtoken[]
   chat_message       chat_message[]
+  user_answer        user_answer[]
 }
 
 model chat_message {
@@ -87,11 +88,12 @@ model preferences {
 }
 
 model problem {
-  problem_id    Int         @id @default(autoincrement())
+  problem_id    Int           @id @default(autoincrement())
   pset_id       Int
   question_text String
   answer_text   String?
-  problem_set   problem_set @relation(fields: [pset_id], references: [pset_id], onDelete: Cascade, onUpdate: NoAction)
+  problem_set   problem_set   @relation(fields: [pset_id], references: [pset_id], onDelete: Cascade, onUpdate: NoAction)
+  user_answer   user_answer[]
   @@index([pset_id])
 }
 
@@ -170,4 +172,20 @@ model upload {
   chat_message  chat_message[]
   paper         paper          @relation(fields: [paper_id], references: [paper_id], onDelete: Cascade, onUpdate: NoAction)
   @@index([paper_id])
+}
+
+model user_answer {
+  answer_id        Int              @id @default(autoincrement())
+  problem_id       Int
+  user_id          Int
+  answer_text      String
+  created_at       DateTime         @default(now()) @db.Timestamp(6)
+  updated_at       DateTime         @updatedAt @db.Timestamp(6)
+  problem          problem          @relation(fields: [problem_id], references: [problem_id], onDelete: Cascade, onUpdate: NoAction)
+  application_user application_user @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  // One current answer per student per question. Saving again replaces it
+  // rather than appending, so there is no attempt history to page through.
+  @@unique([problem_id, user_id])
+  @@index([user_id])
 }
