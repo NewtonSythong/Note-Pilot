@@ -48,5 +48,3 @@ hour would sign out anyone still working.
   injection is the only one reached by user input, since that chain parses
   uploaded PDFs; the rest are build-time tooling. The two framework upgrades
   are their own piece of work, not a security patch.
-- **`user_answer` has no table**, so problem set answers are not persisted
-  (`src/app/api/problemsets/route.tsx`).

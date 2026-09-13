@@ -25,6 +25,7 @@ export default function DashboardPage() {
   // Chat width starts at 50% of viewport
   const [chatWidth, setChatWidth] = useState("50%");
   const isResizing = useRef(false);
+  const saveTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const [questions, setQuestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,16 +71,9 @@ export default function DashboardPage() {
       const data = await response.json();
       
       if (data.success && data.questions && data.questions.length > 0) {
-        // Load user answers from localStorage
-        const questionsWithUserAnswers = data.questions.map((q: any) => {
-          const savedAnswer = localStorage.getItem(`problemAnswer_${q.id}`);
-          return {
-            ...q,
-            userAnswer: savedAnswer || ""
-          };
-        });
-        
-        setQuestions(questionsWithUserAnswers);
+        // The API returns each question with this user's saved answer already
+        // attached, so there is nothing to merge in from the browser.
+        setQuestions(data.questions);
         setLastGeneratedWith(`${selectedLectureIds.length} lecture${selectedLectureIds.length !== 1 ? 's' : ''} (loaded from cache)`);
         setLastLoadedUploadIds(selectedLectureIds.join(','));
         return true; // Found existing problem sets
@@ -118,16 +112,7 @@ export default function DashboardPage() {
       }
 
       if (data.questions && Array.isArray(data.questions)) {
-        // Load any existing user answers from localStorage
-        const questionsWithUserAnswers = data.questions.map((q: any) => {
-          const savedAnswer = localStorage.getItem(`problemAnswer_${q.id}`);
-          return {
-            ...q,
-            userAnswer: savedAnswer || ""
-          };
-        });
-        
-        setQuestions(questionsWithUserAnswers);
+        setQuestions(data.questions);
         setLastGeneratedWith(`${selectedLectureIds.length} lecture${selectedLectureIds.length !== 1 ? 's' : ''} (newly generated)`);
         setLastLoadedUploadIds(selectedLectureIds.join(','));
       } else {
@@ -166,14 +151,32 @@ export default function DashboardPage() {
     generateNewProblemSets();
   };
 
-  // Save user answer (to localStorage for now)
-  const saveUserAnswer = (questionId: string, answer: string) => {
-    localStorage.setItem(`problemAnswer_${questionId}`, answer);
-    
-    // Update local state
-    setQuestions(prev => prev.map(q => 
+  // Save user answer to the server, so it follows the student between devices
+  // rather than living in one browser's localStorage.
+  const saveUserAnswer = (questionId: string | number, answer: string) => {
+    // Update local state immediately; the request catches up behind it.
+    setQuestions(prev => prev.map(q =>
       q.id === questionId ? { ...q, userAnswer: answer } : q
     ));
+
+    const problemId = Number(questionId);
+    // Generation falls back to `temp_N` ids when the problem set itself could
+    // not be saved. Those questions have no row to hang an answer off.
+    if (!Number.isInteger(problemId)) return;
+
+    // The textarea fires on every keystroke, so wait for a pause rather than
+    // issuing a request per character.
+    const timers = saveTimers.current;
+    const pending = timers.get(problemId);
+    if (pending) clearTimeout(pending);
+
+    timers.set(problemId, setTimeout(() => {
+      fetch("/api/problemsets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "saveAnswer", problemId, userAnswer: answer }),
+      }).catch((e) => console.error("Failed to save answer:", e));
+    }, 800));
   };
 
   return (
