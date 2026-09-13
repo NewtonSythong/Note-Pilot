@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { cookies } from "next/headers";
+import { randomBytes } from "node:crypto";
 
 type Session = {
   token: string;
@@ -11,6 +13,12 @@ type Session = {
 
 const sessionCache = new Map<string, Session>();
 
+/** How far each request pushes a live session's expiry out. */
+export const SESSION_SLIDING_EXTENSION_MS = 5 * 60 * 1000;
+
+/** How often that extension is actually persisted, rather than every request. */
+export const SESSION_DB_WRITE_INTERVAL_MS = 60_000;
+
 /**
  * Drops one session from the cache, on logout.
  *
@@ -22,6 +30,49 @@ const sessionCache = new Map<string, Session>();
 export async function clearCache(token: string){
     sessionCache.delete(token);
     return !sessionCache.has(token);
+}
+
+
+/** How long a freshly issued session lasts before the sliding extension applies. */
+export const SESSION_INITIAL_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Issues a session for a user and sets the cookie carrying it.
+ *
+ * Signin and signup both need this and each had its own copy, which is how the
+ * two drift apart: a flag added to one is quietly missing from the other. One
+ * implementation means the cookie is configured once.
+ *
+ * The cookie deliberately outlives the database row. The row is authoritative
+ * and slides forward while the user is active, so a cookie pinned to the
+ * initial hour would log out anyone still working.
+ */
+export async function createSession(user_id: number) {
+    const token = randomBytes(32).toString("hex");
+
+    await prisma.session.create({
+        data: {
+            user_id,
+            token,
+            expires_at: new Date(Date.now() + SESSION_INITIAL_TTL_MS),
+            last_active_at: new Date(),
+        },
+    });
+
+    (await cookies()).set({
+        name: "session_token",
+        value: token,
+        httpOnly: true,
+        // Never send the session over plain HTTP in production. Left off in
+        // development so localhost still works without TLS.
+        secure: process.env.NODE_ENV === "production",
+        // Blocks the cookie on cross-site POSTs, which is the CSRF case here.
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24,
+    });
+
+    return token;
 }
 
 export async function  validateSession(token: string){
@@ -48,16 +99,25 @@ export async function  validateSession(token: string){
             sessionCache.delete(session.token);
             return null
         }
-        const newExpiry = new Date(Date.now() + 5 * 60 * 1000); // add an extra 5min
+        const now = new Date();
+        const newExpiry = new Date(now.getTime() + SESSION_SLIDING_EXTENSION_MS);
         session.expires_at = newExpiry;
         sessionCache.set(session.token, session); //update in cache
 
-        if(Date.now() - session.last_active_at.getTime() <= 60_000 ){ //avoid race conditions.
+        // Throttle the write: persist at most once a minute, when the last
+        // persisted beat is old enough. The comparison used to be `<=`, which
+        // inverted it — the database was written on every request during active
+        // use and then stopped once the user idled past a minute, which is
+        // exactly when expires_at needed to be current. last_active_at must be
+        // advanced in memory too, or this condition never moves again.
+        if (now.getTime() - session.last_active_at.getTime() >= SESSION_DB_WRITE_INTERVAL_MS) {
+            session.last_active_at = now;
+            sessionCache.set(session.token, session);
             prisma.session.update({
                 where: { token: session.token },
                 data: { 
                     expires_at: newExpiry,
-                    last_active_at: new Date(),
+                    last_active_at: now,
                 },
             })
             .catch((err) => {

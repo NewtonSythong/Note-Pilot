@@ -32,6 +32,7 @@ model chat_message {
   application_user application_user @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([upload_id, user_id])
+  @@index([user_id])
 }
 
 model flashcard {
@@ -42,6 +43,7 @@ model flashcard {
   created_at     DateTime?     @default(now()) @db.Timestamp(6)
   learnt         Boolean?      @default(false)
   flashcard_set  flashcard_set @relation(fields: [set_id], references: [set_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([set_id])
 }
 
 model flashcard_set {
@@ -72,6 +74,7 @@ model paper {
   application_user application_user @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
   upload           upload[]
   study_guide      study_guide[]
+  @@index([user_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -89,6 +92,7 @@ model problem {
   question_text String
   answer_text   String?
   problem_set   problem_set @relation(fields: [pset_id], references: [pset_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([pset_id])
 }
 
 model problem_set {
@@ -108,6 +112,7 @@ model session {
   last_active_at   DateTime?        @db.Timestamp(6)
   is_used          Boolean?         @default(false)
   application_user application_user @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([user_id])
 }
 
 model summary {
@@ -136,6 +141,7 @@ model term {
   glossary_id Int
   term_data   String
   glossary    glossary @relation(fields: [glossary_id], references: [glossary_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([glossary_id])
 }
 
 model twofactorauthtoken {
@@ -146,6 +152,7 @@ model twofactorauthtoken {
   is_used          Boolean?         @default(false)
   created_at       DateTime?        @default(now()) @db.Timestamp(6)
   application_user application_user @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([user_id])
 }
 
 model upload {
@@ -162,4 +169,5 @@ model upload {
   summary       summary?
   chat_message  chat_message[]
   paper         paper          @relation(fields: [paper_id], references: [paper_id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([paper_id])
 }
