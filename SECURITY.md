@@ -29,6 +29,17 @@ a list containing one of their own.
 Prefer returning 404 over 403 on an ownership failure, so the response does not
 confirm that the id exists.
 
+## Session handling
+
+Sessions are issued by `createSession` in `src/lib/session.ts`, which signin and
+signup both call. Keep it that way: each previously had its own copy of the
+cookie configuration, which is how one gains a flag the other never gets. The
+cookie is `httpOnly`, `sameSite=lax`, and `secure` outside development.
+
+The cookie deliberately outlives its database row. The row is authoritative and
+slides forward while the user is active, so pinning the cookie to the initial
+hour would sign out anyone still working.
+
 ## Known outstanding issues
 
 - **8 npm advisories remain** (5 high, 3 moderate, 0 critical), all requiring
@@ -37,10 +48,5 @@ confirm that the id exists.
   injection is the only one reached by user input, since that chain parses
   uploaded PDFs; the rest are build-time tooling. The two framework upgrades
   are their own piece of work, not a security patch.
-- **Session expiry is extended in memory on every request**, and the throttle
-  guarding the database write is inverted — `validateSession` writes when the
-  session was active within the last minute rather than when it was last
-  written more than a minute ago. The effect is write amplification during
-  active use and a stale `expires_at` in the database once a user idles.
 - **`user_answer` has no table**, so problem set answers are not persisted
   (`src/app/api/problemsets/route.tsx`).
