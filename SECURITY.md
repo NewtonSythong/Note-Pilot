@@ -44,3 +44,16 @@ confirm that the id exists.
   active use and a stale `expires_at` in the database once a user idles.
 - **`user_answer` has no table**, so problem set answers are not persisted
   (`src/app/api/problemsets/route.tsx`).
+
+## Reports, and why there are not any
+
+`static-analysis-report.md` and `statistical_report.md` were two copies of the
+same generated audit, both titled "Static Analysis Report", alongside the
+`deployment-readiness-report.md` this file replaced. Their findings had gone
+stale in both directions: the unused imports they listed were already gone,
+while the `any` count they put at 14 is now 48. A generated report is a
+snapshot that nothing keeps honest, and three of them disagreeing is worse than
+none. Run the tools; record decisions here.
+
+Still true from those reports, and not addressed: roughly 48 uses of `any`
+across `src`, concentrated in the account pages and the API routes.
