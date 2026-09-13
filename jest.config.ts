@@ -8,6 +8,9 @@ const createJestConfig = nextJest({ dir: './' });
 const config: Config = {
   clearMocks: true,
   testEnvironment: 'jest-environment-node',
+  // next/jest reads tsconfig paths for imports, but jest.mock() resolves its
+  // argument itself, so the alias has to be spelled out here too.
+  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
 };
 
 export default createJestConfig(config);

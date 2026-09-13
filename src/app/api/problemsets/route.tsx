@@ -1,4 +1,6 @@
 import { getAuthedUserId } from "@/lib/auth";
+import { parseUploadIds } from "@/lib/uploadIds";
+import { userOwnsAllUploads } from "@/lib/ownership";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -22,17 +24,16 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const uploadIds = searchParams.get("uploadIds");
-        
-        if (!uploadIds) {
-            return NextResponse.json({ error: "uploadIds parameter required" }, { status: 400 });
+        const parsedIds = parseUploadIds(new URL(request.url));
+        if ('error' in parsedIds) {
+            return NextResponse.json({ error: parsedIds.error }, { status: 400 });
         }
+        const targetUploadIds = parsedIds.ids;
 
-        const targetUploadIds = uploadIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-        
-        if (targetUploadIds.length === 0) {
-            return NextResponse.json({ error: "No valid upload IDs provided" }, { status: 400 });
+        // Problem sets are keyed by upload, so reading one by upload id reads
+        // whatever user that upload belongs to. Gate on ownership first.
+        if (!(await userOwnsAllUploads(targetUploadIds, userId))) {
+            return NextResponse.json({ error: "Upload not found" }, { status: 404 });
         }
 
         // Check if problem set exists for these uploads

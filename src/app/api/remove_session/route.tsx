@@ -38,10 +38,12 @@ export async function GET(){
                 token: token
             }
         })
-        if(!sessionId) NextResponse.json({user: null});
+        // `return` was missing here, so an unknown token fell through to the
+        // update below with an undefined session_id and threw.
+        if(!sessionId) return NextResponse.json({user: null});
 
         // Clear session in cache
-        const clearedCache = await clearCache();
+        const clearedCache = await clearCache(token);
         if(!clearedCache){
              console.log("failed to clear cache");
              return NextResponse.json({user:null, error:"Failed to clear cache"}) 

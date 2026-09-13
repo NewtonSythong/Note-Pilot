@@ -11,9 +11,17 @@ type Session = {
 
 const sessionCache = new Map<string, Session>();
 
-export async function clearCache(){
-    sessionCache.clear();
-    return sessionCache.size == 0 ? true : false; //clear cache on logout.
+/**
+ * Drops one session from the cache, on logout.
+ *
+ * This used to call sessionCache.clear(), so a single user logging out evicted
+ * every other signed-in user's cached session and forced them all back to the
+ * database. The token is the session, so removing that one entry is what
+ * logout actually means.
+ */
+export async function clearCache(token: string){
+    sessionCache.delete(token);
+    return !sessionCache.has(token);
 }
 
 export async function  validateSession(token: string){

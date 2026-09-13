@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { parseUploadIds } from "@/lib/uploadIds";
+import { userOwnsAllUploads } from "@/lib/ownership";
 
 /**
  * Chat API endpoints for persistent chat message management
@@ -20,25 +21,6 @@ const postChatSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
 });
-
-/**
- * Confirms every requested upload belongs to this user.
- *
- * Checking the count rather than fetching one row matters now that a request
- * can name several uploads: verifying only the first would let a caller append
- * someone else's upload id to a list containing one of their own and read that
- * user's chat history back.
- */
-async function userOwnsAllUploads(uploadIds: number[], user_id: number) {
-  const owned = await prisma.upload.count({
-    where: {
-      upload_id: { in: uploadIds },
-      paper: { user_id },
-    },
-  });
-
-  return owned === uploadIds.length;
-}
 
 export async function GET(request: NextRequest) {
   try {

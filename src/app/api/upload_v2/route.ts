@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUserId } from "@/lib/auth";
 import { promises as fs } from "fs";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import PDFParser from "pdf2json";
 import os from "os";
 import path from "path";
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     console.log("Received file:", uploadedFile.name, uploadedFile.size, uploadedFile.type);
 
     // Write temp PDF file
-    const fileName = uuidv4();
+    const fileName = randomUUID();
     const tmpFilePath = path.join(os.tmpdir(), `${fileName}.pdf`);
     const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
     console.log("File buffer size:", fileBuffer.length);
