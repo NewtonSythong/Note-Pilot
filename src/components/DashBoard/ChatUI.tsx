@@ -49,19 +49,17 @@ export default function ChatUI({
   // Load chat history when activeUploadIds changes
   useEffect(() => {
     if (activeUploadIds.length > 0) {
-      // For multiple uploads, we'll load the combined chat history
-      // or just load from the first one for simplicity
-      loadChatHistory(activeUploadIds[0]);
+      loadChatHistory(activeUploadIds);
     } else {
       setMessages([]); // Clear messages if no upload selected
     }
   }, [activeUploadIds.join(',')]); // Watch for changes in the array
 
   // Load existing chat messages for the selected upload
-  const loadChatHistory = async (uploadId: number) => {
+  const loadChatHistory = async (uploadIds: number[]) => {
     setLoadingHistory(true);
     try {
-      const response = await fetch(`/api/chat?uploadId=${uploadId}`, {
+      const response = await fetch(`/api/chat?uploadIds=${uploadIds.join(',')}`, {
         credentials: 'include'
       });
       
@@ -205,8 +203,7 @@ export default function ChatUI({
     if (activeUploadIds.length === 0) return;
     
     try {
-      // Clear chat for the first upload (could be enhanced to clear all)
-      const response = await fetch(`/api/chat?uploadId=${activeUploadIds[0]}`, {
+      const response = await fetch(`/api/chat?uploadIds=${activeUploadIds.join(',')}`, {
         method: 'DELETE',
         credentials: 'include'
       });
