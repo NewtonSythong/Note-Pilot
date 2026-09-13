@@ -58,14 +58,25 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// The matcher protects both pages and API routes
+/**
+ * Pages this middleware gates.
+ *
+ * The previous list did not do what it looked like it did: '/account/path:*'
+ * is not valid matcher syntax and matched nothing, '/api/summarize' names a
+ * route that does not exist (it is /api/summaries), and '/dashboard/' missed
+ * every page beneath it. Anything relying on this for protection was in fact
+ * unprotected.
+ *
+ * API routes are deliberately not listed. Every one of them resolves the user
+ * itself via getSessionUser/getAuthedUserId, and matching them here would add
+ * an HTTP round-trip to /api/validate_session on every request while also
+ * locking out /api/signin and /api/signup, which must stay reachable while
+ * signed out. Route-level auth is the real gate; this is page routing.
+ */
 export const config = {
   matcher: [
-    '/dashboard/',
-    '/account/path:*',
-    '/api/remove_session',
-    '/api/summarize',
-    '/api/upload',
-     // Protects all API routes under /api/protected
+    '/dashboard/:path*',
+    '/account/:path*',
+    '/paper_view/:path*',
   ],
 };

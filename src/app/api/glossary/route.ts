@@ -18,6 +18,7 @@
 
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { userOwnsAllUploads } from "@/lib/ownership";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -65,6 +66,13 @@ export async function POST(req: Request) {
 
         let sourceText = parsed.data.text ?? "";
         const uploadId = parsed.data.uploadId ?? null;
+        // An upload id supplied by the caller is not proof of ownership. Without this
+        // check any signed-in user can name another user's upload and have the app
+        // hand back that user's material. 404 rather than 403 so the response does
+        // not confirm the id exists.
+        if (uploadId && !(await userOwnsAllUploads([uploadId], user.user_id))) {
+            return NextResponse.json({ error: "Upload not found" }, { status: 404 });
+        }
 
         // If uploadId provided, fetch the associated text
         if (!sourceText && uploadId) {
